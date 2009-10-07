@@ -13,6 +13,8 @@ class DiffOutputTransformer
   @@target = ""
   @@ignores = []
   
+  @@input_type = nil
+  
   @@symbols = {
     :added   => 'A',
     :removed => 'D',
@@ -20,6 +22,9 @@ class DiffOutputTransformer
   }
   
   def self.input(input)
+    
+    exit unless input.respond_to? :each
+    
     @@input = input
     return self
   end
@@ -59,7 +64,7 @@ class DiffOutputTransformer
       :changed => /Files ((#{@@source}|#{@@target})([\w.\/]*)) and ((#{@@target}|#{@@source})([\w.\/]*)) differ/i
     }
     
-    File.open( @@input ).each do | line |
+    @@input.each do | line |
       # Added
       a = @@patterns[:added].match( line )
       puts @@symbols[:added] + ": " + a[2]   if a and a[1] and a[2] and !self.ignore?(a[2])
@@ -86,69 +91,75 @@ end
 #
 class DirDiffer
   
-  def self.diff( source_dir, target_dir, output_file="/tmp/diff_dirs.log" )
+  def self.diff( source_dir, target_dir, output_file=nil )
     
     if source_dir and target_dir
-      command = "diff --recursive --brief #{source_dir} #{target_dir} > #{output_file}"
+      if output_file
+        command = "diff --recursive --brief #{source_dir} #{target_dir} > #{output_file}"
+      else
+        command = "diff --recursive --brief #{source_dir} #{target_dir}"
+      end
     end
     
-    result = system(command);
+    return `#{command}`;
 
   end
   
 end
 
-require 'optparse'
-options = { :output => "/tmp/diff_dirs.log", :ignore => ".svn" }
-
-OptionParser.new do |opts|
-  script_name = File.basename($0)
-  opts.banner = "Usage: ruby #{script_name} [options]"
-
-  opts.separator ""
-
-  opts.on(  "-s", "--source source",
-            "Specify the source directory to compare"
-  ) { |options[:source]| }
+if __FILE__ == $0
+  require 'optparse'
+  options = { :output => nil, :ignore => ".svn" }
   
-  opts.on(  :REQUIRED, "-t", "--target target",
-            "Specify the target directory to compare"
-  ) { |options[:target]| }
+  OptionParser.new do |opts|
+    script_name = File.basename($0)
+    opts.banner = "Usage: ruby #{script_name} [options]"
   
-  opts.on(  "-i", "--ignore ignore",
-            "Don't compare files",
-            options[:ignore]
-  ) { |options[:ignore]| }
+    opts.separator ""
   
-  opts.on(  "-o", "--output output",
-            "Specify the temp output file",
-            options[:output]
-  ) { |options[:output]| }
-
-  opts.separator ""
-
-  opts.on("-h", "--help", "Show this help message.") do
-    puts "help switch selected"
-    puts opts
+    opts.on(  "-s", "--source source",
+              "Specify the source directory to compare"
+    ) { |options[:source]| }
+    
+    opts.on(  :REQUIRED, "-t", "--target target",
+              "Specify the target directory to compare"
+    ) { |options[:target]| }
+    
+    opts.on(  "-i", "--ignore ignore",
+              "Don't compare files",
+              options[:ignore]
+    ) { |options[:ignore]| }
+    
+    opts.on(  "-o", "--output output",
+              "Specify the temp output file"
+    ) { |options[:output]| }
+  
+    opts.separator ""
+  
+    opts.on("-h", "--help", "Show this help message.") do
+      puts "help switch selected"
+      puts opts
+      exit
+    end
+  
+  end.parse!
+  
+  unless options[:target] and options[:source]
+    puts "No source or target given"
     exit
   end
-
-end.parse!
-
-unless options[:target] and options[:source]
-  puts "No source or target given"
-  exit
-end
-
-# Do the comparison
-#
-DirDiffer.diff( options[:source],
-                options[:target],
-                options[:output] )
-
-DiffOutputTransformer.transform do | t |
-  t.input( options[:output] )
-  t.source( options[:source] )
-  t.target( options[:target] )
-  t.ignores( options[:ignore].split(",") )
+  
+  # Do the comparison
+  #
+  diff = DirDiffer.diff( options[:source],
+                         options[:target],
+                         options[:output])
+  
+  DiffOutputTransformer.transform do | t |
+    t.input( diff )
+    t.source( options[:source] )
+    t.target( options[:target] )
+    t.ignores( options[:ignore].split(",") )
+  end
+  
 end
