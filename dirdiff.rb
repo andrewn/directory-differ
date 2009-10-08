@@ -59,8 +59,8 @@ class DiffOutputTransformer
     yield( self )
     
     @@patterns = {
-      :added   => /Only in (#{@@source}): ([\w.]*)/i,
-      :removed => /Only in (#{@@target}): ([\w.]*)/i,
+      :added   => /Only in (#{@@source}[\w.]*): ([\w.]*)/i,
+      :removed => /Only in (#{@@target}[\w.]*): ([\w.]*)/i,
       :changed => /Files ((#{@@source}|#{@@target})([\w.\/]*)) and ((#{@@target}|#{@@source})([\w.\/]*)) differ/i
     }
     
